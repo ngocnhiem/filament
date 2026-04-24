@@ -57,29 +57,47 @@ Depending on the Android version and device storage policy, the app's file locat
 
 ---
 
-## Python Terminal UI (TUI) Dashboard
+## Render Validation Results Viewer
 
-To make managing tests and results easier, a Python-based Textual TUI (`validation_app.py`) is provided in the `validation_tui` directory. It automatically polls the connected device using ADB, acts as a GUI for the intent commands above, and handles downloading/uploading `.zip` bundles to circumvent Android's scoped storage limits.
+The project includes a static web viewer to visualize and compare test results across different devices. The viewer supports high-resolution image comparison with zoom/pan controls and dynamic diffing.
 
-### Setup
-1. Ensure you have Python 3 and `adb` installed and in your PATH.
-2. Navigate to the TUI directory: `cd test/render-validation`
-3. Create a virtual environment: `python3 -m venv venv`
-4. Activate it: `source venv/bin/activate` (Mac/Linux) or `venv\Scripts\activate` (Windows)
-5. Install requirements: `pip install -r requirements.txt` (Installs the `textual` framework)
+### Setup & Requirements
+The results processor requires `numpy` and `Pillow`. These are not included in the main `requirements.txt` to keep the TUI dependencies minimal.
 
-### Usage
-Start the dashboard by running:
+1. Install processing dependencies:
+   ```bash
+   pip install numpy Pillow
+   ```
+
+### 1. Process Result Bundles
+The `process_results.py` script takes a directory of `.zip` result files (exported from the Android app) and generates a static web folder.
+
 ```bash
-python validation_app.py
+# Usage: python process_results.py <input_zip_dir> <output_web_dir>
+python process_results.py ./my_results ./web_output
 ```
 
-### TUI Features
-- **Auto-Polling Mechanism**: Syncs the file lists with your device every 2 seconds.
-- **Generate Test/Result Buttons**: One-click execution of the `am start` intents.
-- **Upload Local Test Bundle**: Automatically pushes a local `.zip` file from your PC to the correct directory on the Android device.
-- **Per-File Actions**:
-  - `▶` (Load): Restarts the app with `--es zip_path <filename>` to set it as the active test on device.
-  - `↓` (Download): Pulls the `.zip` to your PC's current working directory.
-  - `✎` (Rename): Quickly renames the file directly on the Android file system.
-  - `✗` (Delete): Quickly removes the file from the Android device to free up storage.
+This script:
+- Extracts images and metadata from the result zips.
+- Generates thumbnails for efficient browser performance.
+- Packages the exact tolerance configurations for the web viewer.
+
+### 2. View Results
+Because the viewer uses ES modules and fetches data, it must be served via a web server.
+
+```bash
+cd ./web_output
+python3 -m http.server 1234
+```
+
+Navigate to `http://localhost:1234` in your desktop browser.
+
+### Web Viewer Features
+- **Tabular Overview**: Compare results across multiple devices and test runs in a single grid.
+- **High-Res Viewer**: Click any thumbnail to open a full-size modal.
+  - **Zoom & Pan**: Use the mouse wheel to zoom and left-click-drag to pan around the render.
+  - **Comparison Modes**: Cycle between "Rendered", "Golden", and "Diff" views.
+- **Dynamic JS Diffing**: The `imagediff` algorithm (including `shiftRadius`, `blurRadius`, and complex tolerance trees) is implemented in JavaScript and computed on-the-fly.
+- **Fail Highlighting**: Toggle "Highlight Failing Pixels" in the Diff view to see exactly which pixels exceeded the tolerance threshold in pure red.
+- **Contrast Control**: Use the contrast slider to amplify subtle rendering differences.
+
